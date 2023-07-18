@@ -6,7 +6,7 @@ from datetime import datetime
 from operator import attrgetter
 from os import PathLike
 from pathlib import Path, PurePath
-from typing import Awaitable, Union, List, Optional, Callable, Iterable
+from typing import Awaitable, Union, List, Optional, Callable, Iterable, TYPE_CHECKING
 
 import pytest
 from _pytest.config import ExitCode
@@ -17,15 +17,12 @@ from jinja2 import Template
 from rich.console import Console
 from syrupy import SnapshotAssertion
 
-from textual._doc import take_svg_screenshot
-from textual._import_app import import_app
-from textual.app import App
-from textual.pilot import Pilot
+if TYPE_CHECKING:
+    from textual.pilot import Pilot
 
 TEXTUAL_SNAPSHOT_SVG_KEY = pytest.StashKey[str]()
 TEXTUAL_ACTUAL_SVG_KEY = pytest.StashKey[str]()
 TEXTUAL_SNAPSHOT_PASS = pytest.StashKey[bool]()
-TEXTUAL_APP_KEY = pytest.StashKey[App]()
 
 
 def pytest_addoption(parser):
@@ -68,6 +65,7 @@ def snap_compare(
         Returns:
             Whether the screenshot matches the snapshot.
         """
+        from textual._import_app import import_app
         node = request.node
         path = Path(app_path)
         if path.is_absolute():
@@ -80,6 +78,7 @@ def snap_compare(
             resolved = (node_path / app_path).resolve()
             app = import_app(str(resolved))
 
+        from textual._doc import take_svg_screenshot
         actual_screenshot = take_svg_screenshot(
             app=app,
             press=press,
@@ -94,7 +93,8 @@ def snap_compare(
                 str(snapshot).splitlines()[1:-1]
             )
             node.stash[TEXTUAL_ACTUAL_SVG_KEY] = actual_screenshot
-            node.stash[TEXTUAL_APP_KEY] = app
+            from textual.app import App
+            node.stash[pytest.StashKey[App]()] = app
         else:
             node.stash[TEXTUAL_SNAPSHOT_PASS] = True
 
@@ -133,7 +133,8 @@ def pytest_sessionfinish(
         num_snapshots_passing += int(item.stash.get(TEXTUAL_SNAPSHOT_PASS, False))
         snapshot_svg = item.stash.get(TEXTUAL_SNAPSHOT_SVG_KEY, None)
         actual_svg = item.stash.get(TEXTUAL_ACTUAL_SVG_KEY, None)
-        app = item.stash.get(TEXTUAL_APP_KEY, None)
+        from textual.app import App
+        app = item.stash.get(pytest.StashKey[App](), None)
 
         if app:
             path, line_index, name = item.reportinfo()
