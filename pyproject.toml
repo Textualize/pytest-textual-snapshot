@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pytest-textual-snapshot"
-version = "0.2.0"
+version = "0.3.0"
 description = "Snapshot testing for Textual apps"
 authors = ["Darren Burns <darren@textualize.io>"]
 maintainers = ["Darren Burns <darren@textualize.io>"]
