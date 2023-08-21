@@ -18,6 +18,7 @@ from rich.console import Console
 from syrupy import SnapshotAssertion
 
 if TYPE_CHECKING:
+    from textual.app import App
     from textual.pilot import Pilot
 
 TEXTUAL_SNAPSHOT_SVG_KEY = pytest.StashKey[str]()
@@ -30,6 +31,13 @@ def pytest_addoption(parser):
         '--snapshot-report', action='store', default="snapshot_report.html", help='Snapshot test output HTML path.'
     )
 
+def app_stash_key() -> pytest.StashKey:
+    try:
+        return app_stash_key._key
+    except AttributeError:
+        from textual.app import App
+        app_stash_key._key = pytest.StashKey[App]()
+    return app_stash_key()
 
 @pytest.fixture
 def snap_compare(
@@ -93,8 +101,7 @@ def snap_compare(
                 str(snapshot).splitlines()[1:-1]
             )
             node.stash[TEXTUAL_ACTUAL_SVG_KEY] = actual_screenshot
-            from textual.app import App
-            node.stash[pytest.StashKey[App]()] = app
+            node.stash[app_stash_key()] = app
         else:
             node.stash[TEXTUAL_SNAPSHOT_PASS] = True
 
@@ -133,8 +140,7 @@ def pytest_sessionfinish(
         num_snapshots_passing += int(item.stash.get(TEXTUAL_SNAPSHOT_PASS, False))
         snapshot_svg = item.stash.get(TEXTUAL_SNAPSHOT_SVG_KEY, None)
         actual_svg = item.stash.get(TEXTUAL_ACTUAL_SVG_KEY, None)
-        from textual.app import App
-        app = item.stash.get(pytest.StashKey[App](), None)
+        app = item.stash.get(app_stash_key(), None)
 
         if app:
             path, line_index, name = item.reportinfo()
