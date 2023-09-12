@@ -64,8 +64,8 @@
                         {% if diff.snapshot != "" %}
                         <div class="form-check form-switch mt-1">
                             <input class="form-check-input" type="checkbox" role="switch"
-                                   id="flexSwitchCheckDefault" onchange="toggleOverlayCheckbox(this, {{ loop.index0 }})">
-                            <label class="form-check-label text-muted" for="flexSwitchCheckDefault">
+                                   id="flexSwitchCheckDefault{{ loop.index0 }}" onchange="toggleOverlayCheckbox(this, {{ loop.index0 }})">
+                            <label class="form-check-label text-muted" for="flexSwitchCheckDefault{{ loop.index0 }}">
                                 Show difference
                             </label>
                         </div>
@@ -78,7 +78,7 @@
                                 <div class="w-100 d-flex justify-content-center mt-1">
                                     <span class="small">Output from test (<a href="#" class="link-primary mb-0"
                                                                              data-bs-toggle="modal"
-                                                                             data-bs-target="#environmentModal">More info</a>)</span>
+                                                                             data-bs-target="#environmentModal{{ loop.index0 }}">More info</a>)</span>
                                 </div>
                             </div>
                             <div class="col">
@@ -121,13 +121,13 @@
                 </div>
 
                 {# Modal with debug info: #}
-                <div class="modal modal-lg fade" id="environmentModal" tabindex="-1"
-                     aria-labelledby="environmentModalLabel"
+                <div class="modal modal-lg fade" id="environmentModal{{ loop.index0 }}" tabindex="-1"
+                     aria-labelledby="environmentModalLabel{{ loop.index0 }}"
                      aria-hidden="true">
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
-                                <h5 class="modal-title" id="environmentModalLabel">More info for <span
+                                <h5 class="modal-title" id="environmentModalLabel{{ loop.index0 }}">More info for <span
                                         class="font-monospace">{{ diff.test_name }}</span></h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"
                                         aria-label="Close"></button>
