@@ -39,6 +39,7 @@ def app_stash_key() -> pytest.StashKey:
         app_stash_key._key = pytest.StashKey[App]()
     return app_stash_key()
 
+
 @pytest.fixture
 def snap_compare(
     snapshot: SnapshotAssertion, request: FixtureRequest
@@ -54,6 +55,7 @@ def snap_compare(
         press: Iterable[str] = (),
         terminal_size: tuple[int, int] = (80, 24),
         run_before: Callable[[Pilot], Awaitable[None] | None] | None = None,
+        force_capture: bool = False,
     ) -> bool:
         """
         Compare a current screenshot of the app running at app_path, with
@@ -69,6 +71,8 @@ def snap_compare(
             run_before: An arbitrary callable that runs arbitrary code before taking the
                 screenshot. Use this to simulate complex user interactions with the app
                 that cannot be simulated by key presses.
+            force_capture: True to force enable output capturing. When `headless=True`, output
+                capturing is disabled. Setting `force_capture=True` overrides this behaviour.
 
         Returns:
             Whether the screenshot matches the snapshot.
@@ -92,6 +96,7 @@ def snap_compare(
             press=press,
             terminal_size=terminal_size,
             run_before=run_before,
+            force_capture=force_capture
         )
         result = snapshot == actual_screenshot
 
