@@ -71,10 +71,10 @@ class PseudoApp:
     console: PseudoConsole
 
 
-def rename_styles(svg: str) -> str:
+def rename_styles(svg: str, suffix: str) -> str:
     """Rename style names to prevent clashes when combined in HTML report."""
     return re.sub(
-        r'terminal-r(\d+)', r'terminal-rx\1', svg)
+        r'terminal-(\d+)-r(\d+)', rf'terminal-\1-r\2-{suffix}', svg)
 
 
 def pytest_addoption(parser):
@@ -236,14 +236,16 @@ def retrieve_svg_diffs(
     diffs: list[SvgSnapshotDiff] = []
     pass_count = 0
 
+    n = 0
     for data_path in Path(tempdir.name).iterdir():
         (passed, expect_svg_text, svg_text, app, full_path, line_index, name
             ) = pickle.loads(data_path.read_bytes())
         pass_count += 1 if passed else 0
         if not passed:
+            n += 1
             diffs.append(SvgSnapshotDiff(
-                snapshot=expect_svg_text,
-                actual=rename_styles(svg_text),
+                snapshot=rename_styles(str(expect_svg_text), f'exp{n}'),
+                actual=rename_styles(svg_text, f'act{n}'),
                 test_name=name,
                 path=full_path,
                 line_number=line_index + 1,
