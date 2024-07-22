@@ -7,6 +7,12 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css" rel="stylesheet"
           integrity="sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT" crossorigin="anonymous">
     <style>
+        #page-header {
+            background: #983DE7;
+            background: linear-gradient(to right, #aa61ea 0%, #ea3bc1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
         .overlay-container {
             position: relative;
         }
@@ -16,36 +22,56 @@
             width: 100%;
             height: 100%;
         }
+        a {
+            color: #aa61ea !important;
+            font-weight: bold;
+            text-decoration: none;
+            &:hover {
+                color: #ea3bc1 !important;
+                text-decoration: underline;
+            }
+        }
+
+        .pass-green {
+            color: #22c55e;
+        }
+        .pass-green-bg {
+            background-color: #22c55e;
+        }
+        .pass-green-bg-20 {
+            background-color: rgba(34, 197, 94, 0.2);
+        }
+        .fail-red {
+            color: #ef4444;
+        }
+        .fail-red-bg {
+            background-color: #ef4444;
+        }
+        .fail-red-bg-20 {
+            background-color: rgba(239, 68, 68, 0.2);
+        }
+        .border-purple {
+            border-color: #aa61ea;
+        }
     </style>
 </head>
-<body>
+<body class="bg-dark text-white">
 
 <div class="container-fluid">
-    <div class="row mb-4" style="background-color:#F4F8F7;">
-        <div class="col-8 p-4">
-            <h4>
+    <div class="row">
+        <div class="col-6 p-4">
+            <h3 id="page-header" class="mb-0">
                 <strong>Textual</strong> Snapshot Tests
-            </h4>
-            <span class="text-muted">Showing diffs for {{ fails }} mismatched snapshot(s)</span>
+            </h3>
         </div>
         <div class="col p-4">
-            <div class="w-100 d-flex justify-content-end mb-1 mt-2">
-                <span class="text-danger">
+            <div class="w-100 d-flex gap-1 justify-content-end mb-1 mt-2">
+                <span class="fail-red fail-red-bg-20 px-2 rounded-1">
                     <strong>{{ diffs | length }}</strong> snapshots changed
                 </span>
-                <span class="text-muted mx-2">·</span>
-                <span class="text-success">
+                <span class="pass-green pass-green-bg-20 px-2 rounded-1">
                     <strong>{{ passes }}</strong> snapshots matched
                 </span>
-            </div>
-            <div class="progress">
-                <div class="progress-bar bg-danger" role="progressbar" aria-label="Segment one"
-                     style="width: {{ fail_percentage }}%"
-                     aria-valuenow="{{ fails }}" aria-valuemin="0" aria-valuemax="{{ num_snapshot_tests }}"></div>
-                <div class="progress-bar bg-success" role="progressbar" aria-label="Segment two"
-                     style="width: {{ pass_percentage }}%"
-                     aria-valuenow="{{ num_snapshot_tests }}" aria-valuemin="0"
-                     aria-valuemax="{{ num_snapshot_tests }}"></div>
             </div>
         </div>
     </div>
@@ -53,7 +79,7 @@
     {% for diff in diffs %}
         <div class="row mb-4">
             <div class="col">
-                <div class="card">
+                <div class="card text-white bg-dark border-secondary rounded-1">
                     <div class="card-header d-flex justify-content-between">
                         <span class="font-monospace mt-1">
                             <span class="fw-bold">{{ diff.test_name }}</span>
@@ -61,8 +87,8 @@
                                 {{ diff.path }}:{{ diff.line_number }}
                             </span>
                         </span>
-                        {% if diff.snapshot != "" %}
-                        <div class="form-check form-switch mt-1">
+                        {% if diff.snapshot_exists %}
+                        <div class="form-check form-switch mt-1 bg-dark">
                             <input class="form-check-input" type="checkbox" role="switch"
                                    id="flexSwitchCheckDefault{{ loop.index0 }}" onchange="toggleOverlayCheckbox(this, {{ loop.index0 }})">
                             <label class="form-check-label text-muted" for="flexSwitchCheckDefault{{ loop.index0 }}">
@@ -75,10 +101,22 @@
                         <div class="row">
                             <div class="col">
                                 {{ diff.actual }}
-                                <div class="w-100 d-flex justify-content-center mt-1">
-                                    <span class="small">Output from test (<a href="#" class="link-primary mb-0"
-                                                                             data-bs-toggle="modal"
-                                                                             data-bs-target="#environmentModal{{ loop.index0 }}">More info</a>)</span>
+                                <div class="w-100 d-flex flex-column justify-content-center align-items-center mt-1">
+                                    {% if diff.app_path %}
+                                        <div class="small text-center font-monospace">
+                                            <a href="{{ file_open_prefix }}{{ diff.app_path }}">
+                                               {{ diff.app_path.parent.name }}/{{ diff.app_path.name }}
+                                            </a>
+                                        </div>
+                                    {% endif %}
+                                    <div class="small opacity-75 text-center">{{ diff.docstring }}</div>
+                                    <div class="small">
+                                        <a href="#" class="mb-0 fw-normal"
+                                           data-bs-toggle="modal"
+                                           data-bs-target="#environmentModal{{ loop.index0 }}">
+                                           View environment info
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col">
@@ -88,10 +126,12 @@
                                     </div>
                                 </div>
                                 <div class="diff-wrapper-snapshot">
-                                    {% if diff.snapshot != "" %}
+                                    {# If a historical snapshot exists for this test, then display it,
+                                    otherwise display a message to the user. #}
+                                    {% if diff.snapshot_exists %}
                                         {{ diff.snapshot }}
                                     {% else %}
-                                        <div class="card">
+                                        <div class="card bg-dark text-white border-purple rounded-1">
                                             <div class="card-body">
                                                 <h4>No history for this test</h4>
                                                 <p class="lead">If you're happy with the content on the left,
@@ -108,7 +148,7 @@
                                         </div>
                                     {% endif %}
                                 </div>
-                                {% if diff.snapshot != "" %}
+                                {% if diff.snapshot_exists %}
                                 <div class="w-100 d-flex justify-content-center mt-1">
                                     <span class="small">
                                         Historical snapshot
@@ -125,7 +165,7 @@
                      aria-labelledby="environmentModalLabel{{ loop.index0 }}"
                      aria-hidden="true">
                     <div class="modal-dialog">
-                        <div class="modal-content">
+                        <div class="modal-content bg-dark text-white">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="environmentModalLabel{{ loop.index0 }}">More info for <span
                                         class="font-monospace">{{ diff.test_name }}</span></h5>
@@ -134,7 +174,7 @@
                             </div>
                             <div class="modal-body overflow-auto">
                                 <h5>Textual App State</h5>
-                                <table class="table mb-4">
+                                <table class="table mb-4 text-white">
                                     <thead>
                                     <tr>
                                         <th scope="col">Variable</th>
@@ -153,7 +193,7 @@
                                     </tbody>
                                 </table>
                                 <h5>Environment (<span class="font-monospace">os.environ</span>)</h5>
-                                <table class="table">
+                                <table class="table text-white">
                                     <thead>
                                     <tr>
                                         <th scope="col">Variable</th>
@@ -182,12 +222,12 @@
         </div>
     {% endfor %}
 
-    <div class="row" style="background-color:#F4F8F7;">
+    <div class="row">
         <div class="col">
-            <div class="card bg-light">
+            <div class="card text-white bg-dark border-secondary rounded-1">
                 <div class="card-body">
-                    <p class="card-text">If you're happy with the test output, run <span class="font-monospace text-primary">pytest</span> with the <span
-                            class="font-monospace text-primary">--snapshot-update</span> flag to update the snapshot.
+                    <p class="card-text">If you're happy with the test output, run <span class="font-monospace">pytest</span> with the <span
+                            class="font-monospace">--snapshot-update</span> flag to update the snapshot.
                     </p>
                 </div>
             </div>

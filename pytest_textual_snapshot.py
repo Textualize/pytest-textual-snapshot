@@ -1,4 +1,5 @@
 from __future__ import annotations
+import inspect
 
 import os
 import pickle
@@ -10,7 +11,7 @@ from operator import attrgetter
 from os import PathLike
 from pathlib import Path, PurePath
 from tempfile import mkdtemp
-from typing import Awaitable, Union, List, Optional, Callable, Iterable, TYPE_CHECKING
+from typing import Any, Awaitable, Union, Optional, Callable, Iterable, TYPE_CHECKING
 
 import pytest
 from _pytest.config import ExitCode
@@ -20,12 +21,11 @@ from _pytest.terminal import TerminalReporter
 from jinja2 import Template
 from rich.console import Console
 from syrupy import SnapshotAssertion
-from syrupy.extensions.single_file import (
-    SingleFileSnapshotExtension, WriteMode)
+from syrupy.extensions.single_file import SingleFileSnapshotExtension, WriteMode
+from textual.app import App
 
 if TYPE_CHECKING:
     from _pytest.nodes import Item
-    from textual.app import App
     from textual.pilot import Pilot
 
 
@@ -41,7 +41,7 @@ class TemporaryDirectory:
     version is not removed automatically when a process exits.
     """
 
-    def __init__(self, name: str = ''):
+    def __init__(self, name: str = ""):
         if name:
             self.name = name
         else:
@@ -73,20 +73,24 @@ class PseudoApp:
 
 def rename_styles(svg: str, suffix: str) -> str:
     """Rename style names to prevent clashes when combined in HTML report."""
-    return re.sub(
-        r'terminal-(\d+)-r(\d+)', rf'terminal-\1-r\2-{suffix}', svg)
+    return re.sub(r"terminal-(\d+)-r(\d+)", rf"terminal-\1-r\2-{suffix}", svg)
 
 
 def pytest_addoption(parser):
     parser.addoption(
-        '--snapshot-report', action='store', default="snapshot_report.html", help='Snapshot test output HTML path.'
+        "--snapshot-report",
+        action="store",
+        default="snapshot_report.html",
+        help="Snapshot test output HTML path.",
     )
+
 
 def app_stash_key() -> pytest.StashKey:
     try:
         return app_stash_key._key
     except AttributeError:
         from textual.app import App
+
         app_stash_key._key = pytest.StashKey[App]()
     return app_stash_key()
 
@@ -97,15 +101,15 @@ def node_to_report_path(node: Item) -> Path:
     path, _, name = node.reportinfo()
     temp = Path(path.parent)
     base = []
-    while temp != temp.parent and temp.name != 'tests':
+    while temp != temp.parent and temp.name != "tests":
         base.append(temp.name)
         temp = temp.parent
     parts = []
     if base:
-        parts.append('_'.join(reversed(base)))
-    parts.append(path.name.replace('.', '_'))
-    parts.append(name.replace('[', '_').replace(']', '_'))
-    return Path(tempdir.name) / '_'.join(parts)
+        parts.append("_".join(reversed(base)))
+    parts.append(path.name.replace(".", "_"))
+    parts.append(name.replace("[", "_").replace("]", "_"))
+    return Path(tempdir.name) / "_".join(parts)
 
 
 @pytest.fixture
@@ -121,7 +125,7 @@ def snap_compare(
     snapshot = snapshot.use_extension(SVGImageExtension)
 
     def compare(
-        app_path: str | PurePath,
+        app: str | PurePath | App[Any],
         press: Iterable[str] = (),
         terminal_size: tuple[int, int] = (80, 24),
         run_before: Callable[[Pilot], Awaitable[None] | None] | None = None,
@@ -133,8 +137,9 @@ def snap_compare(
         the snapshot on disk will be updated to match the current screenshot.
 
         Args:
-            app_path (str): The path of the app. Relative paths are relative to the location of the
-                test this function is called from.
+            app (str): An `App` instance or the path to an App. Relative paths are relative to the location of the
+                test this function is called from. If the path contains an App, that file should *not* call `App.run`
+                itself, as this is done automatically by this function.
             press (Iterable[str]): Key presses to run before taking screenshot. "_" is a short pause.
             terminal_size (tuple[int, int]): A pair of integers (WIDTH, HEIGHT), representing terminal size.
             run_before: An arbitrary callable that runs arbitrary code before taking the
@@ -145,21 +150,30 @@ def snap_compare(
             Whether the screenshot matches the snapshot.
         """
         from textual._import_app import import_app
+
         node = request.node
-        path = Path(app_path)
-        if path.is_absolute():
-            # If the user supplies an absolute path, just use it directly.
-            app = import_app(str(path.resolve()))
+
+        if isinstance(app, App):
+            app_instance = app
+            app_path = ""
         else:
-            # If a relative path is supplied by the user, it's relative to the location of the pytest node,
-            # NOT the location that `pytest` was invoked from.
-            node_path = node.path.parent
-            resolved = (node_path / app_path).resolve()
-            app = import_app(str(resolved))
+            path = Path(app)
+            if path.is_absolute():
+                # If the user supplies an absolute path, just use it directly.
+                app_path = str(path.resolve())
+                app_instance = import_app(app_path)
+            else:
+                # If a relative path is supplied by the user, it's relative to the location of the pytest node,
+                # NOT the location that `pytest` was invoked from.
+                node_path = node.path.parent
+                resolved = (node_path / app).resolve()
+                app_path = str(resolved)
+                app_instance = import_app(app_path)
 
         from textual._doc import take_svg_screenshot
+
         actual_screenshot = take_svg_screenshot(
-            app=app,
+            app=app_instance,
             press=press,
             terminal_size=terminal_size,
             run_before=run_before,
@@ -168,12 +182,35 @@ def snap_compare(
         p_app = PseudoApp(PseudoConsole(console.legacy_windows, console.size))
 
         result = snapshot == actual_screenshot
+
+        # This code must come below the comparison above, as it uses data generated by the comparison.
+        execution_index = (
+            snapshot._custom_index
+            and snapshot._execution_name_index.get(snapshot._custom_index)
+        ) or snapshot.num_executions - 1
+        assertion_result = snapshot.executions.get(execution_index)
+
+        snapshot_exists = (
+            execution_index in snapshot.executions
+            and assertion_result
+            and assertion_result.final_data is not None
+        )
+
         expected_svg_text = str(snapshot)
-        full_path, line_number, name = request.node.reportinfo()
+        full_path, line_number, name = node.reportinfo()
 
         data = (
-            result, expected_svg_text, actual_screenshot, p_app, full_path,
-            line_number, name)
+            result,
+            expected_svg_text,
+            actual_screenshot,
+            p_app,
+            full_path,
+            line_number,
+            name,
+            inspect.getdoc(node.function) or "",
+            app_path,
+            snapshot_exists,
+        )
         data_path = node_to_report_path(request.node)
         data_path.write_bytes(pickle.dumps(data))
 
@@ -193,8 +230,17 @@ class SvgSnapshotDiff:
     test_name: str
     path: PathLike
     line_number: int
-    app: App
-    environment: dict
+    app: App[Any]
+    """The app instance which was tested."""
+    environment: dict[str, str]
+    """The environment variables from the host which ran the test."""
+    docstring: str
+    """If the underlying test functions contains a docstring, we'll include it in the test report."""
+    app_path: Path | None
+    """If the app was loaded from a path, we'll include that path in the test report for easier access.
+    This will be None if an App instance was directly passed to `snap_compare`."""
+    snapshot_exists: bool
+    """True if the there was a snapshot available to compare the test output to, otherwise False."""
 
 
 def pytest_sessionstart(
@@ -205,14 +251,14 @@ def pytest_sessionstart(
     The temporary directory name is stored in an environment vairable so that
     pytest-xdist worker child processes can retrieve it.
     """
-    if os.environ.get('PYTEST_XDIST_WORKER') is None:
+    if os.environ.get("PYTEST_XDIST_WORKER") is None:
         tempdir = TemporaryDirectory()
-        os.environ['TEXTUAL_SNAPSHOT_TEMPDIR'] = tempdir.name
+        os.environ["TEXTUAL_SNAPSHOT_TEMPDIR"] = tempdir.name
 
 
 def get_tempdir():
     """Get the TemporaryDirectory."""
-    return TemporaryDirectory(os.environ['TEXTUAL_SNAPSHOT_TEMPDIR'])
+    return TemporaryDirectory(os.environ["TEXTUAL_SNAPSHOT_TEMPDIR"])
 
 
 def pytest_sessionfinish(
@@ -222,7 +268,7 @@ def pytest_sessionfinish(
     """Called after whole test run finished, right before returning the exit status to the system.
     Generates the snapshot report and writes it to disk.
     """
-    if os.environ.get('PYTEST_XDIST_WORKER') is None:
+    if os.environ.get("PYTEST_XDIST_WORKER") is None:
         tempdir = get_tempdir()
         diffs, num_snapshots_passing = retrieve_svg_diffs(tempdir)
         save_svg_diffs(diffs, session, num_snapshots_passing)
@@ -238,19 +284,35 @@ def retrieve_svg_diffs(
 
     n = 0
     for data_path in Path(tempdir.name).iterdir():
-        (passed, expect_svg_text, svg_text, app, full_path, line_index, name
-            ) = pickle.loads(data_path.read_bytes())
+        (
+            passed,
+            expect_svg_text,
+            svg_text,
+            app,
+            full_path,
+            line_index,
+            name,
+            docstring,
+            app_path,
+            snapshot_exists,
+        ) = pickle.loads(data_path.read_bytes())
         pass_count += 1 if passed else 0
         if not passed:
             n += 1
-            diffs.append(SvgSnapshotDiff(
-                snapshot=rename_styles(str(expect_svg_text), f'exp{n}'),
-                actual=rename_styles(svg_text, f'act{n}'),
-                test_name=name,
-                path=full_path,
-                line_number=line_index + 1,
-                app=app,
-                environment=dict(os.environ)))
+            diffs.append(
+                SvgSnapshotDiff(
+                    snapshot=rename_styles(str(expect_svg_text), f"exp{n}"),
+                    actual=rename_styles(svg_text, f"act{n}"),
+                    test_name=name,
+                    path=full_path,
+                    line_number=line_index + 1,
+                    app=app,
+                    environment=dict(os.environ),
+                    docstring=docstring,
+                    app_path=Path(app_path) if app_path else None,
+                    snapshot_exists=snapshot_exists,
+                )
+            )
     return diffs, pass_count
 
 
@@ -286,6 +348,7 @@ def save_svg_diffs(
             fail_percentage=100 * (num_fails / max(num_snapshot_tests, 1)),
             num_snapshot_tests=num_snapshot_tests,
             now=datetime.utcnow(),
+            file_open_prefix=os.getenv("TEXTUAL_SNAPSHOT_FILE_OPEN_PREFIX", "file://"),
         )
         with open(snapshot_report_path, "w+", encoding="utf-8") as snapshot_file:
             snapshot_file.write(rendered_report)
@@ -302,7 +365,7 @@ def pytest_terminal_summary(
     """Add a section to terminal summary reporting.
     Displays the link to the snapshot report that was generated in a prior hook.
     """
-    if os.environ.get('PYTEST_XDIST_WORKER') is None:
+    if os.environ.get("PYTEST_XDIST_WORKER") is None:
         diffs = getattr(config, "_textual_snapshots", None)
         console = Console(legacy_windows=False, force_terminal=True)
         if diffs:
