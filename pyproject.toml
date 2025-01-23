@@ -1,26 +1,25 @@
 [tool.poetry]
 name = "pytest-textual-snapshot"
-version = "1.0.0"
+version = "1.1.0"
 description = "Snapshot testing for Textual apps"
 authors = ["Darren Burns <darren@textualize.io>"]
-maintainers = ["Darren Burns <darren@textualize.io>"]
+maintainers = ["Will McGugan <will@textualize.io>"]
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/darrenburns/pytest-textual-snapshot"
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Framework :: Pytest",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Testing",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.5",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
