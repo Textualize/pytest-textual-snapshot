@@ -290,6 +290,11 @@ def pytest_sessionfinish(
         diffs, num_snapshots_passing = retrieve_svg_diffs(tempdir)
         save_svg_diffs(diffs, session, num_snapshots_passing)
         tempdir.cleanup()
+    else:
+        config = session.config
+        plugin_manager = config.pluginmanager
+        syrupy = plugin_manager.getplugin('syrupy')
+        plugin_manager.unregister(syrupy)
 
 
 def retrieve_svg_diffs(
