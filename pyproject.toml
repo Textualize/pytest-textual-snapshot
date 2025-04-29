@@ -6,7 +6,7 @@ authors = ["Darren Burns <darren@textualize.io>"]
 maintainers = ["Will McGugan <will@textualize.io>"]
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/darrenburns/pytest-textual-snapshot"
+homepage = "https://github.com/Textualize/pytest-textual-snapshot"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Framework :: Pytest",
